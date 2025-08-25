@@ -8,13 +8,15 @@
     body {
       font-family: Arial, sans-serif;
       background-color: #e0e0e0;
+      margin: 0;
+      padding: 24px;
     }
 
     .outer-box {
       border: 2px solid #000;
       padding: 20px;
       display: inline-block;
-      background-color:white;
+      background-color: white;
       color: black;
     }
 
@@ -23,6 +25,7 @@
       background-color: #f9f9f9;
       cursor: crosshair;
       user-select: none;
+      touch-action: none; /* important for pointer events on touch */
     }
   </style>
 </head>
@@ -36,23 +39,24 @@
 <script>
   const svg = document.getElementById('drawingCanvas');
   let isDrawing = false;
-  let currentPath;
+  let currentPath = null;
   let pathData = '';
 
-  function getMousePosition(evt) {
-    const CTM = svg.getScreenCTM();
+  function getPointerPosition(evt) {
+    const rect = svg.getBoundingClientRect();
     return {
-      x: (evt.clientX - CTM.e) / CTM.a,
-      y: (evt.clientY - CTM.f) / CTM.d
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top,
     };
   }
 
-  svg.addEventListener('mousedown', (evt) => {
+  svg.addEventListener('pointerdown', (evt) => {
     isDrawing = true;
-    const pos = getMousePosition(evt);
+    svg.setPointerCapture(evt.pointerId);
+    const pos = getPointerPosition(evt);
 
     currentPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    pathData = M ${pos.x} ${pos.y};
+    pathData = `M ${pos.x} ${pos.y}`; // FIX: use a string with 'M'
     currentPath.setAttribute('d', pathData);
     currentPath.setAttribute('stroke', 'blue');
     currentPath.setAttribute('stroke-width', 2);
@@ -63,27 +67,24 @@
     svg.appendChild(currentPath);
   });
 
-  svg.addEventListener('mousemove', (evt) => {
-    if (!isDrawing) return;
-
-    const pos = getMousePosition(evt);
+  svg.addEventListener('pointermove', (evt) => {
+    if (!isDrawing || !currentPath) return;
+    const pos = getPointerPosition(evt);
     pathData += ` L ${pos.x} ${pos.y}`;
     currentPath.setAttribute('d', pathData);
   });
 
-  svg.addEventListener('mouseup', () => {
+  function endDrawing(evt) {
+    if (!isDrawing) return;
     isDrawing = false;
+    try { svg.releasePointerCapture(evt.pointerId); } catch (_) {}
     currentPath = null;
     pathData = '';
-  });
+  }
 
-  svg.addEventListener('mouseleave', () => {
-    if (isDrawing) {
-      isDrawing = false;
-      currentPath = null;
-      pathData = '';
-    }
-  });
+  svg.addEventListener('pointerup', endDrawing);
+  svg.addEventListener('pointercancel', endDrawing);
+  svg.addEventListener('pointerleave', endDrawing);
 </script>
 
 </body>
